@@ -8,23 +8,24 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import cv2
 import numpy as np
 from PIL import Image
+
+HAS_TORCH         = False
+HAS_ALBUMENTATIONS = False
 
 try:
     import torch
     import torch.nn as nn
     HAS_TORCH = True
+    try:
+        import albumentations as A
+        from albumentations.pytorch import ToTensorV2
+        HAS_ALBUMENTATIONS = True
+    except Exception:
+        pass
 except Exception:
-    HAS_TORCH = False
-
-try:
-    import albumentations as A
-    from albumentations.pytorch import ToTensorV2
-    HAS_ALBUMENTATIONS = True if HAS_TORCH else False
-except Exception:
-    HAS_ALBUMENTATIONS = False
+    pass
 
 try:
     import onnxruntime as ort
@@ -119,19 +120,18 @@ def get_val_transforms(size: int = 224):
 def preprocess_image(image_bytes: bytes, size: int = 224) -> np.ndarray:
     """Convert uploaded image bytes → normalized numpy array (1, 3, H, W)."""
     pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    img_np  = np.array(pil_img)
-    img_np  = cv2.resize(img_np, (size, size))
+    pil_img = pil_img.resize((size, size), Image.BILINEAR)
+    img_np  = np.array(pil_img, dtype=np.float32)   # (H, W, 3)
 
     if HAS_ALBUMENTATIONS:
         tfm    = get_val_transforms(size)
-        tensor = tfm(image=img_np)["image"]         # (3, H, W) float32
-        return tensor.unsqueeze(0).numpy()           # (1, 3, H, W)
+        tensor = tfm(image=img_np.astype(np.uint8))["image"]
+        return tensor.unsqueeze(0).numpy()
 
-    # Fallback: manual normalization
-    img_f = img_np.astype(np.float32) / 255.0
+    # Normalize dengan ImageNet mean/std
     mean  = np.array(IMAGENET_MEAN, dtype=np.float32)
     std   = np.array(IMAGENET_STD,  dtype=np.float32)
-    img_f = (img_f - mean) / std
+    img_f = (img_np / 255.0 - mean) / std
     return img_f.transpose(2, 0, 1)[None]           # (1, 3, H, W)
 
 
