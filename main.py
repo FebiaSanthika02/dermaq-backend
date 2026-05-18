@@ -29,7 +29,7 @@ DEVICE      = os.getenv("DEVICE", "cpu")
 MAX_MB      = float(os.getenv("MAX_FILE_SIZE_MB", "10"))
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:5173,http://localhost:3000",
+    "*",
 ).split(",")
 
 # Hugging Face model URLs
@@ -90,7 +90,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins     = ALLOWED_ORIGINS,
-    allow_credentials = True,
+    allow_credentials = False,
     allow_methods     = ["*"],
     allow_headers     = ["*"],
 )
